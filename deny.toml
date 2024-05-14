@@ -1,0 +1,5 @@
+[advisories]
+ignore = [
+    { id = "RUSTSEC-2024-0320", reason = "no solution" }
+]
+
