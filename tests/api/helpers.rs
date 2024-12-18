@@ -1,16 +1,14 @@
 //! tests/api/helpers.rs
-use once_cell::sync::Lazy;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
-use std::net::TcpListener;
+use std::sync::LazyLock;
 use uuid::Uuid;
 use wiremock::MockServer;
 use zero2prod::configuration::{get_configuration, DatabaseSettings};
-use zero2prod::email_client::EmailClient;
 use zero2prod::startup::{get_connection_pool, Application};
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
 // Ensure that the `tracing` stack is only initialised once using `once_cell`
 
-static TRACING: Lazy<()> = Lazy::new(|| {
+static TRACING: LazyLock<()> = LazyLock::new(|| {
     let default_filter_level = "info".to_string();
     let subscriber_name = "test".to_string();
     if std::env::var("TEST_LOG").is_ok() {
@@ -53,8 +51,8 @@ impl TestApp {
             confirmation_link.set_port(Some(self.port)).unwrap();
             confirmation_link
         };
-        let html = get_link(&body["HtmlBody"].as_str().unwrap());
-        let plain_text = get_link(&body["TextBody"].as_str().unwrap());
+        let html = get_link(body["HtmlBody"].as_str().unwrap());
+        let plain_text = get_link(body["TextBody"].as_str().unwrap());
         ConfirmationLinks { html, plain_text }
     }
 
@@ -70,6 +68,7 @@ impl TestApp {
 }
 
 pub async fn spawn_app() -> TestApp {
+    LazyLock::force(&TRACING);
     let email_server = MockServer::start().await;
     // Randomise configuration to ensure test isolation
     let configuration = {
@@ -87,7 +86,7 @@ pub async fn spawn_app() -> TestApp {
         .await
         .expect("Failed to build application.");
     let application_port = application.port();
-    let _ = tokio::spawn(application.run_until_stopped());
+    tokio::spawn(application.run_until_stopped());
     TestApp {
         address: format!("http://localhost:{}", application_port),
         port: application_port,
